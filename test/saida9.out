@@ -1,0 +1,6 @@
+VCD info: dumpfile saida.vcd opened for output.
+Erro no dado: dado esperado 07, dado recebido 04
+Erro no dado: dado esperado 08, dado recebido 05
+Erro no dado: dado esperado 09, dado recebido 06
+Erro no dado: dado esperado 0a, dado recebido 04
+tb.v:40: $finish called at 22000 (1ps)
