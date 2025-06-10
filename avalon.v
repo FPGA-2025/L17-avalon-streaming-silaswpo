@@ -1,55 +1,91 @@
 module avalon (
-    input  wire clk,
-    input  wire resetn,
-    input  wire ready,
-    output reg  valid,
+    input wire clk,
+    input wire resetn,
+    output reg valid,
+    input wire ready,
     output reg [7:0] data
 );
 
-    // Estados
-    localparam IDLE = 2'd0,
-               D4   = 2'd1,
-               D5   = 2'd2,
-               D6   = 2'd3;
+    // Codificação dos estados
+    parameter S_IDLE        = 3'd0;
+    parameter S_VALID_4     = 3'd1;
+    parameter S_VALID_5     = 3'd2;
+    parameter S_VALID_6     = 3'd3;
+    parameter S_HOLD_5      = 3'd4;
+    parameter S_HOLD_6      = 3'd5;
+    parameter S_DONE        = 3'd6;
 
-    reg [1:0] state, next_state;
-    reg ready_d;
-    reg valid_hold;
+    reg [2:0] state, next_state;
 
-    // Sequencial
-    always @(posedge clk or negedge resetn) begin
-        if (!resetn) begin
-            state       <= IDLE;
-            ready_d     <= 0;
-            valid_hold  <= 0;
-        end else begin
-            state       <= next_state;
-            ready_d     <= ready;
-            valid_hold  <= ready | valid_hold; // mantém valid 1 por 1 ciclo mesmo se ready caiu
-            if (ready) valid_hold <= 0; // reset valid_hold se ready voltou a 1
-        end
-    end
+    // Lógica sequencial
+always @(posedge clk or negedge resetn) begin
+    if (!resetn)
+        state <= S_IDLE;
+    else
+        state <= next_state;
+end
 
-    // Próximo estado
+    // Lógica de transição de estado
     always @(*) begin
         next_state = state;
         case (state)
-            IDLE: if (ready) next_state = D4;
-            D4:   if (ready) next_state = D5;
-            D5:   if (ready) next_state = D6;
-            D6:   if (ready) next_state = IDLE;
+            S_IDLE: begin
+                if (ready)
+                    next_state = S_VALID_4;
+            end
+            S_VALID_4: begin
+                if (ready)
+                    next_state = S_VALID_5;
+                else
+                    next_state = S_HOLD_5;
+            end
+            S_VALID_5: begin
+                if (ready)
+                    next_state = S_VALID_6;
+                else
+                    next_state = S_HOLD_6;
+            end
+            S_VALID_6: begin           
+                next_state = S_DONE;
+            end
+            S_HOLD_5: begin
+                if (ready)
+                    next_state = S_VALID_5;
+                else
+                    next_state = S_HOLD_5; // um ciclo
+            end
+            S_HOLD_6: begin
+                if (ready)
+                    next_state = S_VALID_6;
+                else
+                    next_state = S_HOLD_6; // um ciclo
+            end
+            S_DONE: begin
+                next_state = S_DONE;
+            end
         endcase
     end
 
-    // Saídas
+    // Saída: Moore 
     always @(*) begin
-        valid = 0;
-        data = 8'd0;
-        case (state)
-            D4: begin valid = ready_d | valid_hold; data = 8'd4; end
-            D5: begin valid = ready_d | valid_hold; data = 8'd5; end
-            D6: begin valid = ready_d | valid_hold; data = 8'd6; end
-        endcase
-    end
+            valid = 0;
+            case (state)
+                S_VALID_4: begin
+                    valid = 1;
+                    data = 4;
+                end
+                S_VALID_5: begin
+                    valid = 1;
+                    data = 5;
+                end
+                S_VALID_6: begin
+                    valid = 1;
+                    data = 6;
+                end
+                default: begin
+                    valid = 0;
+                end
+            endcase
+        end
 
 endmodule
